@@ -565,8 +565,8 @@ void VulkanRenderer::createDescriptorSetLayout() {
 void VulkanRenderer::createGraphicsPipeline(const char* vFilename, const char * fFilename) {
     //auto vertShaderCode = readFile(vFilename);
     //auto fragShaderCode = readFile(fFilename);
-    auto vertShaderCode = readFile("shaders/phong.vert.spv");
-    auto fragShaderCode = readFile("shaders/phong.frag.spv");
+    auto vertShaderCode = readFile("shaders/multiPhong.vert.spv");
+    auto fragShaderCode = readFile("shaders/multiPhong.frag.spv");
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -1273,8 +1273,9 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.view = view;
     ubo.model = model;
     ubo.proj[5] *= -1.0f;
-    ubo.lightPos = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
-    //ubo.lightPos[1] = Vec4(0.0f, 2.0f, 0.0f, 0.0f);
+    ubo.lightPos[0] = Vec4(3.0f, -2.0f, 0.0f, 0.0f);
+    ubo.lightPos[1] = Vec4(-3.0f, 2.0f, 0.0f, 0.0f);
+    //ubo.lightPos[2] = Vec4(0.0f, 0.0f, 3.0f, 0.0f);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
