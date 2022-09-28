@@ -116,7 +116,7 @@ struct UniformBufferObject {
     Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
-    Vec4 lightPos[2];
+    Vec4 lightPos;
 };
 
 class VulkanRenderer : public Renderer {
@@ -195,7 +195,7 @@ private:
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
-    void createGraphicsPipeline();
+    void createGraphicsPipeline(const char* vFilename, const char* fFilename);
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();

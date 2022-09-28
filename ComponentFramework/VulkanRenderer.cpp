@@ -143,7 +143,7 @@ void VulkanRenderer::initVulkan() {
     // In OpenGl pipilines with shaders are created by default
     // In Vulkan Scott did it for us
     // ***Volatile**
-    createGraphicsPipeline();
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
     // Rendering commands <- Command buffer <- Command pool
     // Buffer have all the instructions for GPU
     // !You cant multithread out of the same command pool
@@ -258,7 +258,7 @@ void VulkanRenderer::recreateSwapChain() {
     createSwapChain();
     createImageViews();
     createRenderPass();
-    createGraphicsPipeline();
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
     createDepthResources();
     createFramebuffers();
     createUniformBuffers();
@@ -562,7 +562,9 @@ void VulkanRenderer::createDescriptorSetLayout() {
     }
 }
 
-void VulkanRenderer::createGraphicsPipeline() {
+void VulkanRenderer::createGraphicsPipeline(const char* vFilename, const char * fFilename) {
+    //auto vertShaderCode = readFile(vFilename);
+    //auto fragShaderCode = readFile(fFilename);
     auto vertShaderCode = readFile("shaders/phong.vert.spv");
     auto fragShaderCode = readFile("shaders/phong.frag.spv");
 
@@ -1271,6 +1273,8 @@ void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, cons
     ubo.view = view;
     ubo.model = model;
     ubo.proj[5] *= -1.0f;
+    ubo.lightPos = Vec4(0.0f, 0.0f, 0.0f, 0.0f);
+    //ubo.lightPos[1] = Vec4(0.0f, 2.0f, 0.0f, 0.0f);
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
