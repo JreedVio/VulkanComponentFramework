@@ -116,7 +116,7 @@ struct UniformBufferObject {
     Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
-    Vec4 lightPos[3];
+    Vec4 lightPos[2];
 };
 
 class VulkanRenderer : public Renderer {

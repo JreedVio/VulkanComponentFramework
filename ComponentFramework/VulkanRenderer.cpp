@@ -981,6 +981,8 @@ void VulkanRenderer::loadModel(const char* filename) {
                 attrib.normals[3 * index.normal_index + 2] 
             };
 
+            // Deduplication
+
             if (uniqueVertices.count(vertex) == 0) {
                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
