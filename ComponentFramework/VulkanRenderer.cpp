@@ -1328,15 +1328,6 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
-void VulkanRenderer::updateConst(uint32_t currentImage) {
-
-    void* data;
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(PushConst), 0, &data);
-    memcpy(data, &pushConst, sizeof(PushConst));
-
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
-}
-
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code) {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
