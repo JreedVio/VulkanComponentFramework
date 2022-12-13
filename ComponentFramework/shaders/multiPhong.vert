@@ -6,11 +6,16 @@ layout (location = 1) in  vec4 inNormal;
 layout (location = 2) in  vec2 inTexCoord;
 
 layout (binding = 0) uniform UniformBufferObject {
-    mat4 model;
     mat4 view;
     mat4 proj;
 	vec4 lightPos[2];
 } ubo;
+
+layout (push_constant) uniform PushConst {
+	mat4 model;
+	mat4 normal;
+} pushConst;
+
 
 layout (location = 0) out vec3 vertNormal;
 layout (location = 1) out vec3 lightDir[2];
@@ -20,13 +25,15 @@ layout (location = 4) out vec2 fragTexCoord;
 void main() {
 
 	fragTexCoord = inTexCoord;
-	mat3 normalMatrix = mat3(transpose(inverse(ubo.model)));
+
+	mat3 normalMatrix = mat3(pushConst.normal);
+
 	vertNormal = normalize(normalMatrix * inNormal.xyz);
-	vec3 vertPos = vec3(ubo.view * ubo.model * inPosition);
+	vec3 vertPos = vec3(ubo.view * pushConst.model * inPosition);
 	vec3 vertDir = normalize(vertPos);
 	eyeDir = -vertDir;
 	for(int i = 0; i < 2; ++i){
 		lightDir[i] = normalize(vec3(ubo.lightPos[i]) - vertPos);
 	}
-	gl_Position = ubo.proj * ubo.view * ubo.model * inPosition;
+	gl_Position = ubo.proj * ubo.view * pushConst.model * inPosition;
 }

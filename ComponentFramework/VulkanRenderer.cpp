@@ -166,6 +166,7 @@ void VulkanRenderer::initVulkan() {
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers();
+    recordCommandBuffer();
     createSyncObjects();
 }
 
@@ -265,6 +266,7 @@ void VulkanRenderer::recreateSwapChain() {
     createDescriptorPool();
     createDescriptorSets();
     createCommandBuffers();
+    recordCommandBuffer();
 }
 
 void VulkanRenderer::createInstance() {
@@ -604,8 +606,8 @@ void VulkanRenderer::createGraphicsPipeline(const char* vFilename, const char * 
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
-    viewport.width = (float)swapChainExtent.width;
-    viewport.height = (float)swapChainExtent.height;
+    viewport.width = static_cast<float>(swapChainExtent.width);
+    viewport.height = static_cast<float>(swapChainExtent.height);
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
 
@@ -658,10 +660,18 @@ void VulkanRenderer::createGraphicsPipeline(const char* vFilename, const char * 
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
 
+    // NEW
+    VkPushConstantRange push_constant{};
+    push_constant.offset = 0;
+    push_constant.size = sizeof(PushConst);
+    push_constant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    // NEW
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+    pipelineLayoutInfo.pPushConstantRanges = &push_constant;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;  
 
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
         throw std::runtime_error("failed to create pipeline layout!");
@@ -1202,8 +1212,10 @@ void VulkanRenderer::createCommandBuffers() {
 
     if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate command buffers!");
-    }
+    }    
+}
 
+void VulkanRenderer::recordCommandBuffer() {
     for (size_t i = 0; i < commandBuffers.size(); i++) {
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -1219,6 +1231,7 @@ void VulkanRenderer::createCommandBuffers() {
         renderPassInfo.renderArea.offset = { 0, 0 };
         renderPassInfo.renderArea.extent = swapChainExtent;
 
+        //Background
         std::array<VkClearValue, 2> clearValues{};
         clearValues[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
         clearValues[1].depthStencil = { 1.0f, 0 };
@@ -1237,6 +1250,10 @@ void VulkanRenderer::createCommandBuffers() {
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+
+        //NEW
+        vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+            sizeof(PushConst), &pushConst);
 
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
@@ -1270,14 +1287,18 @@ void VulkanRenderer::createSyncObjects() {
     }
 }
 
-void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model) {
+void VulkanRenderer::SetUBO(const Matrix4& projection, const Matrix4& view) {
     ubo.proj = projection;
     ubo.view = view;
-    ubo.model = model;
     ubo.proj[5] *= -1.0f;
     ubo.lightPos[0] = Vec4(3.0f, -2.0f, 0.0f, 0.0f);
     ubo.lightPos[1] = Vec4(-3.0f, 2.0f, 0.0f, 0.0f);
-    //ubo.lightPos[2] = Vec4(0.0f, 0.0f, 3.0f, 0.0f);
+}
+
+void VulkanRenderer::SetConst(const Matrix4& model) {
+    pushConst.model = model;
+    pushConst.normal = MMath::transpose(MMath::inverse(model));
+    recordCommandBuffer();
 }
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
@@ -1303,6 +1324,16 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage) {
     // find a block of memory large enought to hold ubo
     vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
+
+    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+}
+
+void VulkanRenderer::updateConst(uint32_t currentImage) {
+
+    void* data;
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(PushConst), 0, &data);
+    memcpy(data, &pushConst, sizeof(PushConst));
+
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 

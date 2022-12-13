@@ -62,7 +62,8 @@ void Scene0::Render() const {
 	case RendererType::VULKAN:
 		VulkanRenderer* vRenderer;
 		vRenderer = dynamic_cast<VulkanRenderer*>(renderer);
-		vRenderer->SetUBO(camera->GetProjectionMatrix(), camera->GetViewMatrix(), mariosModelMatrix);
+		vRenderer->SetUBO(camera->GetProjectionMatrix(), camera->GetViewMatrix());
+		vRenderer->SetConst(mariosModelMatrix);
 		vRenderer->Render();
 		break;
 

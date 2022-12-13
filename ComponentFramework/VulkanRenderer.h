@@ -113,10 +113,14 @@ struct QueueFamilyIndices {
 
  
 struct UniformBufferObject {
-    Matrix4 model;
     Matrix4 view;
     Matrix4 proj;
     Vec4 lightPos[2];
+};
+struct PushConst {
+    Matrix4 model;
+    Matrix4 normal;
+    
 };
 
 class VulkanRenderer : public Renderer {
@@ -133,13 +137,15 @@ public:
     bool OnCreate();
     void OnDestroy();
     void Render();
-    void SetUBO(const Matrix4& projection, const Matrix4& view, const Matrix4& model);
+    void SetUBO(const Matrix4& projection, const Matrix4& view);
+    void SetConst(const Matrix4& model);
     SDL_Window* GetWindow() {
         return window;
     }
 
 private:
     UniformBufferObject ubo;
+    PushConst pushConst;
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -192,6 +198,7 @@ private:
     void createImageViews();
     void recreateSwapChain();
     void updateUniformBuffer(uint32_t currentImage);
+    void updateConst(uint32_t currentImage);
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
@@ -215,6 +222,7 @@ private:
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
+    void recordCommandBuffer();
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
