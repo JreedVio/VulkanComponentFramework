@@ -6,7 +6,12 @@ layout(location = 1) in  vec3 lightDir[2];
 layout(location = 3) in  vec3 eyeDir;
 layout(location = 4) in  vec2 fragTexCoord;
 
-layout(binding = 1) uniform sampler2D texSampler;
+layout (binding = 1) uniform GlobalLightingUBO {
+	vec4 lightPos[2];
+	vec4 diffuse;
+} glights;
+
+layout(binding = 2) uniform sampler2D texSampler;
 
 layout(location = 0) out vec4 fragColor;
 

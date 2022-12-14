@@ -125,6 +125,7 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Debug.cpp" />
+    <ClCompile Include="GlobalLightning.cpp" />
     <ClCompile Include="Hash.cpp" />
     <ClCompile Include="OpenGLRenderer.cpp" />
     <ClCompile Include="SceneManager.cpp" />
@@ -138,6 +139,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Debug.h" />
+    <ClInclude Include="GlobalLighting.h" />
     <ClInclude Include="Hash.h" />
     <ClInclude Include="OpenGLRenderer.h" />
     <ClInclude Include="Renderer.h" />

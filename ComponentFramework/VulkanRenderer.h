@@ -23,6 +23,8 @@
 #include "VMath.h"
 #include "MMath.h"
 #include "Hash.h"
+#include "GlobalLighting.h"
+
 using namespace MATH;
 
 
@@ -115,7 +117,6 @@ struct QueueFamilyIndices {
 struct UniformBufferObject {
     Matrix4 view;
     Matrix4 proj;
-    Vec4 lightPos[2];
 };
 struct PushConst {
     Matrix4 model;
@@ -138,6 +139,7 @@ public:
     void OnDestroy();
     void Render();
     void SetUBO(const Matrix4& projection, const Matrix4& view);
+    void SetGLightsUbo(const GlobalLighting& glights);
     void SetConst(const Matrix4& model);
     SDL_Window* GetWindow() {
         return window;
@@ -145,7 +147,9 @@ public:
 
 private:
     UniformBufferObject ubo;
+    GlobalLighting glightsUBO;
     PushConst pushConst;
+
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -176,8 +180,12 @@ private:
     VkBuffer indexBuffer;
     VkDeviceMemory indexBufferMemory;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
+    std::vector<VkBuffer> cameraBuffers;
+    std::vector<VkDeviceMemory> cameraBuffersMemory;
+    std::vector<VkBuffer> glightingBuffers;
+    std::vector<VkDeviceMemory> glightingBuffersMemory;
+
+
     std::vector<VkCommandBuffer> commandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores;
     std::vector<VkSemaphore> renderFinishedSemaphores;
@@ -198,7 +206,7 @@ private:
     void createImageViews();
     void recreateSwapChain();
     void updateUniformBuffer(uint32_t currentImage);
-    void updateConst(uint32_t currentImage);
+    void updateGLightsUniformBuffer(uint32_t currentImage);
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
     void createDescriptorSetLayout();
@@ -216,7 +224,9 @@ private:
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     void createIndexBuffer();
-    void createUniformBuffers();
+    void createUniformBuffers(VkDeviceSize bufferSize,
+        std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
+    void destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void createDescriptorPool();
     void createDescriptorSets();
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);

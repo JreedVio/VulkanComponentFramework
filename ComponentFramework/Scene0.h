@@ -4,6 +4,7 @@
 #include "Matrix.h"
 #include "Renderer.h"
 #include "Camera.h"
+#include "GlobalLighting.h"
 using namespace MATH;
 
 /// Forward declarations 
@@ -14,6 +15,7 @@ class Scene0 : public Scene {
 private:
 	Renderer *renderer;
 	Camera* camera;
+	GlobalLighting globalLights;
 	Matrix4 mariosModelMatrix;
 	
 public:
