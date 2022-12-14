@@ -124,6 +124,11 @@ struct PushConst {
     
 };
 
+struct BufferMemory {
+    VkBuffer bufferID;
+    VkDeviceMemory bufferMemoryID;
+};
+
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions 
@@ -148,7 +153,7 @@ public:
 private:
     UniformBufferObject ubo;
     GlobalLighting glightsUBO;
-    PushConst pushConst;
+    PushConst pushConst[2];
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<Vertex> vertices;
@@ -175,10 +180,8 @@ private:
 
     VkCommandPool commandPool;
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+    BufferMemory vertexBuffer;
+    BufferMemory indexBuffer;
 
     std::vector<VkBuffer> cameraBuffers;
     std::vector<VkDeviceMemory> cameraBuffersMemory;
