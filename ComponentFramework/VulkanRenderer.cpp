@@ -144,8 +144,8 @@ void VulkanRenderer::initVulkan() {
     // In OpenGl pipilines with shaders are created by default
     // In Vulkan Scott did it for us
     // ***Volatile**
-    //createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
-    createGraphicsPipelineGeometry();
+    createGraphicsPipeline("shaders/phong.vert.spv", "shaders/phong.frag.spv");
+    //createGraphicsPipelineGeometry();
     // Rendering commands <- Command buffer <- Command pool
     // Buffer have all the instructions for GPU
     // !You cant multithread out of the same command pool
@@ -155,9 +155,11 @@ void VulkanRenderer::initVulkan() {
     // This is what we are drawing onto
     createFramebuffers();
     // ***Mutable***
-    createTextureImage("./textures/mario_fire.png");
-    createTextureImageView();
-    createTextureSampler();
+    createTextureImage("./textures/mario_mime.png", textures[0]);
+    //createTextureImage("./textures/mario_fire.png", textures[1]);
+    //createTextureImageView();
+    //createTextureSampler();
+    //createTextureSampler();
     loadModel("./meshes/Mario.obj");
     // Loading vertices into the memory of GPU
     createVertexBuffer();
@@ -168,7 +170,7 @@ void VulkanRenderer::initVulkan() {
     createUniformBuffers(sizeof(GlobalLighting), glightingBuffers, 
         glightingBuffersMemory);
     createDescriptorPool();
-    createDescriptorSets();
+    createDescriptorSets(textures[0]);
     createCommandBuffers();
     recordCommandBuffer();
     createSyncObjects();
@@ -214,11 +216,17 @@ void VulkanRenderer::destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, 
 void VulkanRenderer::cleanup() {
     cleanupSwapChain();
 
-    vkDestroySampler(device, textureSampler, nullptr);
-    vkDestroyImageView(device, textureImageView, nullptr);
+    vkDestroySampler(device, textures[0].textureSampler, nullptr);
+    vkDestroyImageView(device, textures[0].textureImageView, nullptr);
 
-    vkDestroyImage(device, textureImage, nullptr);
-    vkFreeMemory(device, textureImageMemory, nullptr);
+    vkDestroyImage(device, textures[0].textureImage, nullptr);
+    vkFreeMemory(device, textures[0].textureImageMemory, nullptr);
+
+    vkDestroySampler(device, textures[1].textureSampler, nullptr);
+    vkDestroyImageView(device, textures[1].textureImageView, nullptr);
+
+    vkDestroyImage(device, textures[1].textureImage, nullptr);
+    vkFreeMemory(device, textures[1].textureImageMemory, nullptr);
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
@@ -278,7 +286,7 @@ void VulkanRenderer::recreateSwapChain() {
     createUniformBuffers(sizeof(GlobalLighting), glightingBuffers,
         glightingBuffersMemory);
     createDescriptorPool();
-    createDescriptorSets();
+    createDescriptorSets(textures[0]);
     createCommandBuffers();
     recordCommandBuffer();
 }
@@ -943,7 +951,7 @@ bool VulkanRenderer::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
-void VulkanRenderer::createTextureImage(const char * filename) {
+void VulkanRenderer::createTextureImage(const char * filename, Sampler2D_Data &textureData) {
     //SDL_Surface* image = IMG_Load(TEXTURE_PATH.c_str());
     SDL_Surface* image = IMG_Load(filename);
     ///image->format
@@ -961,23 +969,32 @@ void VulkanRenderer::createTextureImage(const char * filename) {
     vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
   
-    createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    createImage(image->w, image->h, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, 
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+        textureData.textureImage, textureData.textureImageMemory);
+    transitionImageLayout(textureData.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     // Loading memory from the staging memory to the actual image memory
-    copyBufferToImage(stagingBuffer.bufferID, textureImage, static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
-    transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    copyBufferToImage(stagingBuffer.bufferID, textureData.textureImage, 
+        static_cast<uint32_t>(image->w), static_cast<uint32_t>(image->h));
+    transitionImageLayout(textureData.textureImage, VK_FORMAT_R8G8B8A8_SRGB, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(device, stagingBuffer.bufferID, nullptr);
     vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 
     SDL_FreeSurface(image);
+
+    createTextureImageView(textureData);
+    createTextureSampler(textureData);
 }
 
-void VulkanRenderer::createTextureImageView() {
-    textureImageView = createImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+void VulkanRenderer::createTextureImageView(Sampler2D_Data &textureData) {
+    textureData.textureImageView = createImageView(textureData.textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void VulkanRenderer::createTextureSampler() {
+void VulkanRenderer::createTextureSampler(Sampler2D_Data &textureData) {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
@@ -996,7 +1013,7 @@ void VulkanRenderer::createTextureSampler() {
     samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
-    if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
+    if (vkCreateSampler(device, &samplerInfo, nullptr, &textureData.textureSampler) != VK_SUCCESS) {
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
@@ -1172,6 +1189,8 @@ void VulkanRenderer::loadModel(const char* filename) {
             indices.push_back(uniqueVertices[vertex]);
         }
     }
+    //createVertexBuffer(indexedBufferMemory, vertices);
+    //createIndexBuffer(indexedBufferMemory, indices);
 }
 
 void VulkanRenderer::createVertexBuffer() {
@@ -1251,7 +1270,7 @@ void VulkanRenderer::createDescriptorPool() {
     }
 }
 
-void VulkanRenderer::createDescriptorSets() {
+void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData) {
     std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1278,8 +1297,8 @@ void VulkanRenderer::createDescriptorSets() {
         // The 2D sampler
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = textureImageView;
-        imageInfo.sampler = textureSampler;
+        imageInfo.imageView = textureData.textureImageView;
+        imageInfo.sampler = textureData.textureSampler;
 
         std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 

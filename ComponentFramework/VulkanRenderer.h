@@ -129,6 +129,13 @@ struct BufferMemory {
     VkDeviceMemory bufferMemoryID;
 };
 
+struct Sampler2D_Data {
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    VkImageView textureImageView;
+    VkSampler textureSampler;
+};
+
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions 
@@ -219,9 +226,9 @@ private:
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage(const char* filename);
-    void createTextureImageView();
-    void createTextureSampler();
+    void createTextureImage(const char* filename, Sampler2D_Data &texture);
+    void createTextureImageView(Sampler2D_Data &texture);
+    void createTextureSampler(Sampler2D_Data &texture);
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
     void loadModel(const char* filename);
@@ -233,7 +240,7 @@ private:
         std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void createDescriptorPool();
-    void createDescriptorSets();
+    void createDescriptorSets(Sampler2D_Data texture);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
@@ -266,10 +273,8 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+    
+    Sampler2D_Data textures[2];
 
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
