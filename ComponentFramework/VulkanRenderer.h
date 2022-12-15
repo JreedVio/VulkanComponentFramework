@@ -136,6 +136,11 @@ struct Sampler2D_Data {
     VkSampler textureSampler;
 };
 
+struct Descriptor {
+    VkDescriptorPool pool;
+    std::vector<VkDescriptorSet> sets;
+};
+
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions 
@@ -162,6 +167,8 @@ private:
     GlobalLighting glightsUBO;
     PushConst pushConst[2];
 
+    Descriptor descriptor[2];
+
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -179,8 +186,6 @@ private:
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
     VkPipeline graphicsPipeline1;
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
 
     VkImage depthImage;
     VkDeviceMemory depthImageMemory;
@@ -239,8 +244,8 @@ private:
     void createUniformBuffers(VkDeviceSize bufferSize,
         std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
-    void createDescriptorPool();
-    void createDescriptorSets(Sampler2D_Data texture);
+    void createDescriptorPool(Descriptor& descriptor);
+    void createDescriptorSets(Sampler2D_Data texture, Descriptor& descriptor);
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();

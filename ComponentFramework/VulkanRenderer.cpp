@@ -156,7 +156,7 @@ void VulkanRenderer::initVulkan() {
     createFramebuffers();
     // ***Mutable***
     createTextureImage("./textures/mario_mime.png", textures[0]);
-    //createTextureImage("./textures/mario_fire.png", textures[1]);
+    createTextureImage("./textures/mario_fire.png", textures[1]);
     //createTextureImageView();
     //createTextureSampler();
     //createTextureSampler();
@@ -169,8 +169,10 @@ void VulkanRenderer::initVulkan() {
     createUniformBuffers(sizeof(UniformBufferObject), cameraBuffers, cameraBuffersMemory);
     createUniformBuffers(sizeof(GlobalLighting), glightingBuffers, 
         glightingBuffersMemory);
-    createDescriptorPool();
-    createDescriptorSets(textures[0]);
+    createDescriptorPool(descriptor[0]);
+    createDescriptorPool(descriptor[1]);
+    createDescriptorSets(textures[0], descriptor[0]);
+    createDescriptorSets(textures[1], descriptor[1]);
     createCommandBuffers();
     recordCommandBuffer();
     createSyncObjects();
@@ -203,7 +205,8 @@ void VulkanRenderer::cleanupSwapChain() {
     destroyUniformBuffer(cameraBuffers, cameraBuffersMemory);
     destroyUniformBuffer(glightingBuffers, glightingBuffersMemory);
 
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    vkDestroyDescriptorPool(device, descriptor[0].pool, nullptr);
+    vkDestroyDescriptorPool(device, descriptor[1].pool, nullptr);
 }
 
 void VulkanRenderer::destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory) {
@@ -285,8 +288,10 @@ void VulkanRenderer::recreateSwapChain() {
     createUniformBuffers(sizeof(UniformBufferObject), cameraBuffers, cameraBuffersMemory);
     createUniformBuffers(sizeof(GlobalLighting), glightingBuffers,
         glightingBuffersMemory);
-    createDescriptorPool();
-    createDescriptorSets(textures[0]);
+    createDescriptorPool(descriptor[0]);
+    createDescriptorPool(descriptor[1]);
+    createDescriptorSets(textures[0], descriptor[0]);
+    createDescriptorSets(textures[1], descriptor[1]);
     createCommandBuffers();
     recordCommandBuffer();
 }
@@ -724,6 +729,10 @@ void VulkanRenderer::createGraphicsPipeline(const char* vFilename, const char * 
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create graphics pipeline!");
+    }
+
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline1) != VK_SUCCESS) {
         throw std::runtime_error("failed to create graphics pipeline!");
     }
 
@@ -1250,7 +1259,7 @@ void VulkanRenderer::createUniformBuffers(VkDeviceSize bufferSize,
     }
 }
 
-void VulkanRenderer::createDescriptorPool() {
+void VulkanRenderer::createDescriptorPool(Descriptor& descriptor) {
     std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(swapChainImages.size());
@@ -1265,21 +1274,21 @@ void VulkanRenderer::createDescriptorPool() {
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(swapChainImages.size());
 
-    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptor.pool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool!");
     }
 }
 
-void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData) {
+void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData, Descriptor& descriptor) {
     std::vector<VkDescriptorSetLayout> layouts(swapChainImages.size(), descriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorPool = descriptor.pool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(swapChainImages.size());
     allocInfo.pSetLayouts = layouts.data();
 
-    descriptorSets.resize(swapChainImages.size());
-    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
+    descriptor.sets.resize(swapChainImages.size());
+    if (vkAllocateDescriptorSets(device, &allocInfo, descriptor.sets.data()) != VK_SUCCESS) {
         throw std::runtime_error("failed to allocate descriptor sets!");
     }
 
@@ -1303,7 +1312,7 @@ void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData) {
         std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstSet = descriptor.sets[i];
         descriptorWrites[0].dstBinding = 0;
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1311,7 +1320,7 @@ void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData) {
         descriptorWrites[0].pBufferInfo = &cameraBufferInfo;
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstSet = descriptor.sets[i];
         descriptorWrites[1].dstBinding = 1;
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1319,7 +1328,7 @@ void VulkanRenderer::createDescriptorSets(Sampler2D_Data textureData) {
         descriptorWrites[1].pBufferInfo = &glightsBufferInfo;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = descriptorSets[i];
+        descriptorWrites[2].dstSet = descriptor.sets[i];
         descriptorWrites[2].dstBinding = 2;
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1451,6 +1460,8 @@ void VulkanRenderer::recordCommandBuffer() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+
+
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
         //NEW
@@ -1463,7 +1474,7 @@ void VulkanRenderer::recordCommandBuffer() {
 
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor[0].sets[i], 0, nullptr);
 
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
@@ -1471,7 +1482,7 @@ void VulkanRenderer::recordCommandBuffer() {
 
 
         // Second model
-        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+        vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline1);
 
         //NEW
         vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
@@ -1481,7 +1492,7 @@ void VulkanRenderer::recordCommandBuffer() {
 
         vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
+        vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor[1].sets[i], 0, nullptr);
 
         vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
