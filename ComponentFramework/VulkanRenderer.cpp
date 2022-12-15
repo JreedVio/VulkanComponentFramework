@@ -156,16 +156,19 @@ void VulkanRenderer::initVulkan() {
     createFramebuffers();
     // ***Mutable***
     createTextureImage("./textures/mario_mime.png", textures[0]);
-    createTextureImage("./textures/mario_fire.png", textures[1]);
+    createTextureImage("./textures/skull_texture.png", textures[1]);
     //createTextureImageView();
     //createTextureSampler();
     //createTextureSampler();
-    loadModel("./meshes/Mario.obj");
+    loadModel("./meshes/Mario.obj", modelParameters[0], 
+        vertexBuffer[0], indexBuffer[0]);
+    loadModel("./meshes/Skull.obj", modelParameters[1],
+        vertexBuffer[1], indexBuffer[1]);
     // Loading vertices into the memory of GPU
-    createVertexBuffer();
+    //createVertexBuffer();
     // Vertex deduplication
     // Gets rid of redundant vertices
-    createIndexBuffer();
+    //createIndexBuffer();
     createUniformBuffers(sizeof(UniformBufferObject), cameraBuffers, cameraBuffersMemory);
     createUniformBuffers(sizeof(GlobalLighting), glightingBuffers, 
         glightingBuffersMemory);
@@ -233,11 +236,17 @@ void VulkanRenderer::cleanup() {
 
     vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-    vkDestroyBuffer(device, indexBuffer.bufferID, nullptr);
-    vkFreeMemory(device, indexBuffer.bufferMemoryID, nullptr);
+    vkDestroyBuffer(device, indexBuffer[0].bufferID, nullptr);
+    vkFreeMemory(device, indexBuffer[0].bufferMemoryID, nullptr);
 
-    vkDestroyBuffer(device, vertexBuffer.bufferID, nullptr);
-    vkFreeMemory(device, vertexBuffer.bufferMemoryID, nullptr);
+    vkDestroyBuffer(device, vertexBuffer[0].bufferID, nullptr);
+    vkFreeMemory(device, vertexBuffer[0].bufferMemoryID, nullptr);
+
+    vkDestroyBuffer(device, indexBuffer[1].bufferID, nullptr);
+    vkFreeMemory(device, indexBuffer[1].bufferMemoryID, nullptr);
+
+    vkDestroyBuffer(device, vertexBuffer[1].bufferID, nullptr);
+    vkFreeMemory(device, vertexBuffer[1].bufferMemoryID, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -1154,7 +1163,7 @@ void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t 
     endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanRenderer::loadModel(const char* filename) {
+void VulkanRenderer::loadModel(const char* filename, ModelParameters& modelparameters, BufferMemory& vertexBuffer, BufferMemory& indexBuffer) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> materials;
@@ -1191,19 +1200,19 @@ void VulkanRenderer::loadModel(const char* filename) {
             // Deduplication
 
             if (uniqueVertices.count(vertex) == 0) {
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
+                uniqueVertices[vertex] = static_cast<uint32_t>(modelparameters.vertices.size());
+                modelparameters.vertices.push_back(vertex);
             }
 
-            indices.push_back(uniqueVertices[vertex]);
+            modelparameters.indices.push_back(uniqueVertices[vertex]);
         }
     }
-    //createVertexBuffer(indexedBufferMemory, vertices);
-    //createIndexBuffer(indexedBufferMemory, indices);
+    createVertexBuffer(modelparameters, vertexBuffer);
+    createIndexBuffer(modelparameters, indexBuffer);
 }
 
-void VulkanRenderer::createVertexBuffer() {
-    VkDeviceSize bufferSize = sizeof(Vertex) * vertices.size();
+void VulkanRenderer::createVertexBuffer(ModelParameters& modelparameters, BufferMemory& vertexBuffer) {
+    VkDeviceSize bufferSize = sizeof(Vertex) * modelparameters.vertices.size();
 
     BufferMemory stagingBuffer;
                                                                                                                        // these are being pulled in by reference, be constatant
@@ -1213,7 +1222,7 @@ void VulkanRenderer::createVertexBuffer() {
 
     void* data;
     vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, bufferSize, 0, &data);
-    memcpy(data, vertices.data(), (size_t)bufferSize);
+    memcpy(data, modelparameters.vertices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer.bufferID, vertexBuffer.bufferMemoryID);
@@ -1224,8 +1233,8 @@ void VulkanRenderer::createVertexBuffer() {
     vkFreeMemory(device, stagingBuffer.bufferMemoryID, nullptr);
 }
 
-void VulkanRenderer::createIndexBuffer() {
-    VkDeviceSize bufferSize = sizeof(uint32_t) * indices.size();
+void VulkanRenderer::createIndexBuffer(ModelParameters& modelparameters, BufferMemory& indexBuffer) {
+    VkDeviceSize bufferSize = sizeof(uint32_t) * modelparameters.indices.size();
 
     BufferMemory stagingBuffer;
 
@@ -1235,7 +1244,7 @@ void VulkanRenderer::createIndexBuffer() {
 
     void* data;
     vkMapMemory(device, stagingBuffer.bufferMemoryID, 0, bufferSize, 0, &data);
-    memcpy(data, indices.data(), (size_t)bufferSize);
+    memcpy(data, modelparameters.indices.data(), (size_t)bufferSize);
     vkUnmapMemory(device, stagingBuffer.bufferMemoryID);
 
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer.bufferID, indexBuffer.bufferMemoryID);
@@ -1460,7 +1469,9 @@ void VulkanRenderer::recordCommandBuffer() {
 
         vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-
+        VkBuffer vertexBuffers0[] = { vertexBuffer[0].bufferID }; //HERE
+        VkBuffer vertexBuffers1[] = { vertexBuffer[1].bufferID }; //HERE
+        VkDeviceSize offsets[] = { 0 };
 
         vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
@@ -1468,15 +1479,13 @@ void VulkanRenderer::recordCommandBuffer() {
         vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
             sizeof(PushConst), &pushConst[0]);
 
-        VkBuffer vertexBuffers[] = { vertexBuffer.bufferID }; //HERE
-        VkDeviceSize offsets[] = { 0 };
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers0, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer[0].bufferID, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor[0].sets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(modelParameters[0].indices.size()), 1, 0, 0, 0);
 
 
 
@@ -1488,13 +1497,13 @@ void VulkanRenderer::recordCommandBuffer() {
         vkCmdPushConstants(commandBuffers[i], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0,
             sizeof(PushConst), &pushConst[1]);
 
-        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+        vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers1, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer.bufferID, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer[1].bufferID, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptor[1].sets[i], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(modelParameters[1].indices.size()), 1, 0, 0, 0);
 
 
 

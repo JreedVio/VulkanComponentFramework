@@ -141,6 +141,11 @@ struct Descriptor {
     std::vector<VkDescriptorSet> sets;
 };
 
+struct ModelParameters {
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+};
+
 class VulkanRenderer : public Renderer {
 public:
     /// C11 precautions 
@@ -168,10 +173,9 @@ private:
     PushConst pushConst[2];
 
     Descriptor descriptor[2];
+    ModelParameters modelParameters[2];
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
     SDL_Event sdlEvent;
     uint32_t windowWidth;
     uint32_t windowHeight;
@@ -193,8 +197,8 @@ private:
 
     VkCommandPool commandPool;
 
-    BufferMemory vertexBuffer;
-    BufferMemory indexBuffer;
+    BufferMemory vertexBuffer[2];
+    BufferMemory indexBuffer[2];
 
     std::vector<VkBuffer> cameraBuffers;
     std::vector<VkDeviceMemory> cameraBuffersMemory;
@@ -236,11 +240,11 @@ private:
     void createTextureSampler(Sampler2D_Data &texture);
     void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
         VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void loadModel(const char* filename);
-    void createVertexBuffer();
+    void loadModel(const char* filename, ModelParameters& modelparameters, BufferMemory& vertexBuffer, BufferMemory& indexBuffer);
+    void createVertexBuffer(ModelParameters& modelparameters, BufferMemory& vertexBuffer);
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    void createIndexBuffer();
+    void createIndexBuffer(ModelParameters& modelparameters, BufferMemory& indexBuffer);
     void createUniformBuffers(VkDeviceSize bufferSize,
         std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
