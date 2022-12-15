@@ -171,6 +171,7 @@ private:
     VkDescriptorSetLayout descriptorSetLayout;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+    VkPipeline graphicsPipeline1;
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
@@ -214,6 +215,7 @@ private:
     void createRenderPass();
     void createDescriptorSetLayout();
     void createGraphicsPipeline(const char* vFilename, const char* fFilename);
+    void createGraphicsPipelineGeometry();
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();

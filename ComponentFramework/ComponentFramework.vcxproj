@@ -160,10 +160,14 @@
     <Text Include="Graphics Game Engine_Log.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\drawNormals.frag" />
+    <None Include="shaders\drawNormals.geom" />
+    <None Include="shaders\drawNormals.vert" />
     <None Include="shaders\example27.frag" />
     <None Include="shaders\example27.vert" />
     <None Include="shaders\frag.spv" />
     <None Include="shaders\multiPhong.frag" />
+    <None Include="shaders\multiPhong.geom" />
     <None Include="shaders\multiPhong.vert" />
     <None Include="shaders\phong.frag" />
     <None Include="shaders\phong.vert" />
