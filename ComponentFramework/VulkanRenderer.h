@@ -18,18 +18,25 @@
 #include <unordered_map>
 #include <array>
 #include <chrono>
+#include <memory>
 
 #include "Vector.h"
 #include "VMath.h"
 #include "MMath.h"
-#include "Hash.h"
 #include "GlobalLighting.h"
+#include "ShaderComponent.h"
+#include "MaterialComponent.h"
+#include "MeshComponent.h"
+#include "TransformComponent.h"
+#include "Actor.h"
 
 using namespace MATH;
 
 
 #include "Renderer.h"
 
+template<typename T>
+using Ref = std::shared_ptr<T>;
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
@@ -50,55 +57,18 @@ struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
 
-    bool isComplete() {
-        return graphicsFamily.has_value() && presentFamily.has_value();
-    }
-};
+        bool isComplete() {
+            return graphicsFamily.has_value() && presentFamily.has_value();
+        }
+    };
 
     struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
-};
+    };
 
-    struct Vertex {
-        Vec3 pos;
-        Vec3 normal;
-        Vec2 texCoord;
-
-        static VkVertexInputBindingDescription getBindingDescription() {
-            VkVertexInputBindingDescription bindingDescription{};
-            bindingDescription.binding = 0;
-            bindingDescription.stride = sizeof(Vertex);
-            bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-            return bindingDescription;
-        }
-
-        static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-            std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-            attributeDescriptions[0].binding = 0;
-            attributeDescriptions[0].location = 0;
-            attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-            attributeDescriptions[1].binding = 0;
-            attributeDescriptions[1].location = 1;
-            attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-            attributeDescriptions[1].offset = offsetof(Vertex, normal);
-
-            attributeDescriptions[2].binding = 0;
-            attributeDescriptions[2].location = 2;
-            attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-            attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-            return attributeDescriptions;
-        }
-        bool operator == (const Vertex& other) const {
-            return pos == other.pos && normal == other.normal && texCoord == other.texCoord;
-        }
-        
-    }; /// End of struct Vertex
+    
 
 
     namespace std {
@@ -113,67 +83,79 @@ struct QueueFamilyIndices {
         };
     }
 
- 
-struct UniformBufferObject {
-    Matrix4 view;
-    Matrix4 proj;
-};
-struct PushConst {
-    Matrix4 model;
-    Matrix4 normal;
+
+    struct UniformBufferObject {
+        Matrix4 view;
+        Matrix4 proj;
+    };
     
-};
 
-struct BufferMemory {
-    VkBuffer bufferID;
-    VkDeviceMemory bufferMemoryID;
-};
+    class VulkanRenderer : public Renderer {
+    public:
+        /// C11 precautions 
+        VulkanRenderer(const VulkanRenderer&) = delete;  /// Copy constructor
+        VulkanRenderer(VulkanRenderer&&) = delete;       /// Move constructor
+        VulkanRenderer& operator=(const VulkanRenderer&) = delete; /// Copy operator
+        VulkanRenderer& operator=(VulkanRenderer&&) = delete;      /// Move operator
 
-struct Sampler2D_Data {
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
-};
 
-struct Descriptor {
-    VkDescriptorPool pool;
-    std::vector<VkDescriptorSet> sets;
-};
+        ~VulkanRenderer();
+        SDL_Window* CreateWindow(std::string name_, int width, int height);
+        bool OnCreate();
+        void OnDestroy();
+        void Render();
+        void SetUBO(const Matrix4& projection, const Matrix4& view);
+        void SetGLightsUbo(const GlobalLighting& glights);
+        void SetPushConst(const Matrix4& model);
+        SDL_Window* GetWindow() {
+            return window;
+        }
+        VkDevice GetDevice(){
+            return device;
+        }
+        VkPhysicalDevice GetPhysicalDevice() {
+            return physicalDevice;
+        }
+        VkRenderPass GetRenderPass() {
+            return renderPass;
+        }
+        VkExtent2D GetSwapChainExtent() {
+            return swapChainExtent;
+        }
+        std::vector<VkImage> GetSwapChainImages() {
+            return swapChainImages;
+        }
+        std::vector<VkBuffer>  GetCameraBuffers() {
+            return cameraBuffers;
+        }
+        std::vector<VkBuffer> GetGLightingBuffers() {
+            return glightingBuffers;
+        }
 
-struct ModelParameters {
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-};
+        static VulkanRenderer* GetInstance() {
+            if (Instance == nullptr) {
+                Instance = new VulkanRenderer();
+            }
+            return Instance;
+        }
 
-class VulkanRenderer : public Renderer {
-public:
-    /// C11 precautions 
-    VulkanRenderer(const VulkanRenderer&) = delete;  /// Copy constructor
-    VulkanRenderer(VulkanRenderer&&) = delete;       /// Move constructor
-    VulkanRenderer& operator=(const VulkanRenderer&) = delete; /// Copy operator
-    VulkanRenderer& operator=(VulkanRenderer&&) = delete;      /// Move operator
-
-    VulkanRenderer();
-    ~VulkanRenderer();
-    SDL_Window* CreateWindow(std::string name_, int width, int height);
-    bool OnCreate();
-    void OnDestroy();
-    void Render();
-    void SetUBO(const Matrix4& projection, const Matrix4& view);
-    void SetGLightsUbo(const GlobalLighting& glights);
-    void SetConst(const Matrix4& model);
-    SDL_Window* GetWindow() {
-        return window;
-    }
+        void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+        void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+            VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+        void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+        VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+        void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+        void createDescriptorPool(VkDescriptorPool& pool_);
 
 private:
+    static VulkanRenderer* Instance;
+
+    VulkanRenderer();
+
     UniformBufferObject ubo;
     GlobalLighting glightsUBO;
-    PushConst pushConst[2];
 
-    Descriptor descriptor[2];
-    ModelParameters modelParameters[2];
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
     SDL_Event sdlEvent;
@@ -186,19 +168,18 @@ private:
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
     VkDevice device;
     VkRenderPass renderPass;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
-    VkPipeline graphicsPipeline1;
+
+    Ref<Actor> actor[2];
+
+    Ref<ShaderComponent> shaderComponent;
+    Ref<MaterialComponent> materialComponent[2];
+    Ref<MeshComponent> meshComponent[2];
 
     VkImage depthImage;
     VkDeviceMemory depthImageMemory;
     VkImageView depthImageView;
 
     VkCommandPool commandPool;
-
-    BufferMemory vertexBuffer[2];
-    BufferMemory indexBuffer[2];
 
     std::vector<VkBuffer> cameraBuffers;
     std::vector<VkDeviceMemory> cameraBuffersMemory;
@@ -215,7 +196,6 @@ private:
 
     bool framebufferResized = false;
 
-
     bool hasStencilComponent(VkFormat format);
 
     void initVulkan();
@@ -227,38 +207,20 @@ private:
     void recreateSwapChain();
     void updateUniformBuffer(uint32_t currentImage);
     void updateGLightsUniformBuffer(uint32_t currentImage);
-    VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
     void createRenderPass();
-    void createDescriptorSetLayout();
-    void createGraphicsPipeline(const char* vFilename, const char* fFilename);
-    void createGraphicsPipelineGeometry();
     void createFramebuffers();
     void createCommandPool();
     void createDepthResources();
-    void createTextureImage(const char* filename, Sampler2D_Data &texture);
-    void createTextureImageView(Sampler2D_Data &texture);
-    void createTextureSampler(Sampler2D_Data &texture);
-    void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
-        VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-    void loadModel(const char* filename, ModelParameters& modelparameters, BufferMemory& vertexBuffer, BufferMemory& indexBuffer);
-    void createVertexBuffer(ModelParameters& modelparameters, BufferMemory& vertexBuffer);
         /// A helper function for createVertexBuffer()
         uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-    void createIndexBuffer(ModelParameters& modelparameters, BufferMemory& indexBuffer);
     void createUniformBuffers(VkDeviceSize bufferSize,
         std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
     void destroyUniformBuffer(std::vector<VkBuffer>& uniformBuffer, std::vector<VkDeviceMemory>& uniformBufferMemory);
-    void createDescriptorPool(Descriptor& descriptor);
-    void createDescriptorSets(Sampler2D_Data texture, Descriptor& descriptor);
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
     void createCommandBuffers();
     void recordCommandBuffer();
     void createSyncObjects();
     void cleanup();
     void cleanupSwapChain();
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
     VkFormat findDepthFormat();
     VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
@@ -282,10 +244,6 @@ private:
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
-    
-    Sampler2D_Data textures[2];
-
-
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
     VkSwapchainKHR swapChain;
@@ -295,15 +253,10 @@ private:
     std::vector<VkImageView> swapChainImageViews;
     std::vector<VkFramebuffer> swapChainFramebuffers;
 
-    VkShaderModule createShaderModule(const std::vector<char>& code);
     VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
     VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
     VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-
-    static std::vector<char> readFile(const std::string& filename);
-
-   
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);   
 };
 #endif 
 
